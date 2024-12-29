@@ -1,0 +1,95 @@
+from transformers import pipeline
+from tqdm import tqdm
+import re
+import multiprocessing
+from pdfminer.high_level import extract_pages,extract_text
+summarizer=pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+print("Finished Reading")
+t=extract_text("location/test.pdf")
+# Remove bullet points from the text
+with tqdm(total=3, desc="Text Cleaning") as pbar:
+    ct1 = t.replace('•', '')
+    pbar.update(1)
+    ct = ct1.replace('\n', '.')
+    pbar.update(1)
+    t = ct.replace('Ø', '')
+    pbar.update(1)
+t = re.sub(r'\.+', '.', t)
+print("Analysing")
+#***************************
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+
+# Specify the model name
+model_name = "sshleifer/distilbart-cnn-12-6"
+
+# Download the model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
+# Save the model and tokenizer locally
+tokenizer.save_pretrained("local_distilbart_cnn")
+model.save_pretrained("local_distilbart_cnn")
+tokenizer = AutoTokenizer.from_pretrained("local_distilbart_cnn")
+model = AutoModelForSeq2SeqLM.from_pretrained("local_distilbart_cnn")
+
+ar=t
+chunk_size = 1024
+chunks = [ar[i:i+chunk_size] for i in range(0, len(ar), chunk_size)]
+
+su=[]
+n=1030
+#final_summary="(Add subtitles, make the music louder and change the voice over to a British female voice)"
+while n >=1020:
+  chunks = [ar[i:i+chunk_size] for i in range(0, len(ar), chunk_size)]
+  for chunk in tqdm(chunks, desc="Summarizing"):
+        summary = summarizer(chunk, max_length=100, min_length=30, do_sample=False)[0]['summary_text']
+        su.append(summary)
+        final_summary = " ".join(su)
+  print(final_summary)
+  n=len(final_summary)
+  print(n)
+  ar=final_summary
+# ---------------------
+import asyncio
+from playwright.async_api import async_playwright
+from pyvirtualdisplay import Display
+async def run():
+    display = Display(visible=0, size=(1920, 1080))
+    display.start()
+        # Launch owser and create context and page
+    async with async_playwright() as playwright:
+          browser = await playwright.chromium.launch(headless=True)
+          context = await browser.new_context()
+          page = await context.new_page()
+          print("test0")
+        # Navigate and perform actions
+          await page.goto("https://invideo.io/")
+          await page.goto("https://ai.invideo.io/login?ux_source=top_right_header_button")
+          await page.get_by_role("button", name="Continue with email").click()
+          await page.get_by_placeholder("Email").fill("<Email>")
+          print("test1")
+
+      # Wait for the OTP field to be available before interacting with it
+          await page.get_by_role("button", name="Continue with email").click()
+          await page.get_by_placeholder("Paste login code here").click()
+          otp=str(input("Enter otp"))
+          #print(type(otp))
+          await page.get_by_placeholder("Paste login code here").fill(otp)
+          async with page.expect_navigation():
+            await page.get_by_role("button", name="Login").click()
+          #await page.goto("https://ai.invideo.io/")
+          #await page.wait_for_navigation();
+          await page.goto("https://ai.invideo.io/workspaces",timeout=30000)
+          await page.goto("https://ai.invideo.io/workspace/270c3929-4e8f-4031-be6d-16a89fb6e529/v20-copilot")
+          #while s<len(final_summary):
+             #chunk=final_summary[s:s+m]
+          await page.get_by_placeholder("Give me a topic, language and").fill(final_summary)
+             #s=s+m
+          async with page.expect_navigation():
+            await page.get_by_role("button", name="Generate a video").click()
+          async with page.expect_navigation():
+            await page.get_by_role("button", name="Continue").click()
+          print("test4")
+          #await page.goto("https://ai.invideo.io/workspace/270c3929-4e8f-4031-be6d-16a89fb6e529/v20-copilot/8cd57626-ebad-46de-be3b-3966e7c88d50")
+        #print(f"An error occurred: {e}")  # Log or handle the
+await run()
